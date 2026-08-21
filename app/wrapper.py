@@ -1,37 +1,24 @@
 import json
 
 from app.client import generate_text
+from app.exceptions import LLMResponseError, LLMClientError
+from app.prompts import JSON_RESPONSE_INSTRUCTIONS
+from app.schemas import validate_response
 
 
 class LLM:
+
     def __init__(self, system_prompt: str | None = None):
         self.system_prompt = system_prompt
 
-    def generate(self, prompt: str) -> dict:
+    def generate(self, prompt: str):
+
         instructions = self.system_prompt or ""
-
-        json_instruction = """
-You must return your response as valid JSON.
-
-Return exactly this structure:
-
-{
-    "answer": "your answer here"
-}
-
-Rules:
-- The response must be a JSON object.
-- The object must contain an "answer" field.
-- "answer" must be a string.
-- Do not include Markdown.
-- Do not include code fences.
-- Do not include any text outside the JSON object.
-"""
 
         full_prompt = f"""
 {instructions}
 
-{json_instruction}
+{JSON_RESPONSE_INSTRUCTIONS}
 
 User request:
 {prompt}
@@ -42,23 +29,13 @@ User request:
         try:
             data = json.loads(response)
         except json.JSONDecodeError as exc:
-            raise ValueError(
+            raise LLMResponseError(
                 "LLM returned invalid JSON."
             ) from exc
 
-        if not isinstance(data, dict):
-            raise ValueError(
-                "LLM response must be a JSON object."
-            )
-
-        if "answer" not in data:
-            raise ValueError(
-                'LLM response is missing the "answer" field.'
-            )
-
-        if not isinstance(data["answer"], str):
-            raise ValueError(
-                'LLM "answer" field must be a string.'
-            )
-
-        return data
+        try:
+            return validate_response(data)
+        except ValueError as exc:
+            raise LLMResponseError(
+                "LLM returned JSON with an invalid structure."
+            ) from exc

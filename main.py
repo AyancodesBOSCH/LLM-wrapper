@@ -1,7 +1,10 @@
 from app.wrapper import LLM
+from app.formatter import format_response
+from app.exceptions import LLMError
 
 
 def main():
+
     llm = LLM(
         system_prompt=(
             "You are a helpful assistant. "
@@ -11,13 +14,13 @@ def main():
 
     prompt = input("You: ")
 
-    response = llm.generate(prompt)
+    try:
+        response = llm.generate(prompt)
+        print("\nBosch Model Farm:")
+        print(format_response(response))
 
-    print("\nParsed response:")
-    print(response)
-
-    print("\nAnswer:")
-    print(response["answer"])
+    except LLMError as exc:
+        print(f"\nError: {exc}")
 
 
 if __name__ == "__main__":
